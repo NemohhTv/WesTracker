@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Content Spend Tracker</title>
+  <style>
+    :root { --bg:#0f1115; --card:#151822; --muted:#aab2c0; --text:#e7ecf3; --accent:#4da3ff; --ok:#22c55e; --danger:#ef4444; --border:#232836; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:20px;margin:0}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button,.btn{background:var(--card);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:10px;cursor:pointer}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    button:hover{border-color:#2e3446}
+    .primary{background:var(--accent);color:#08111c;border:0}
+    .danger{background:var(--danger);border:0}
+    .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:8px}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 8px}
+    tbody tr{background:#121521;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    tbody tr td{padding:8px;vertical-align:top}
+    .video-cell{display:flex;gap:12px;align-items:flex-start}
+    .thumb{width:120px;height:68px;background:#0b0d13;border:1px solid var(--border);border-radius:10px;object-fit:cover;display:block}
+    .thumb-wrap{position:relative;display:inline-block}
+    .edit-link{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);border:none;color:#fff;font-size:14px;border-radius:999px;padding:6px;cursor:pointer;line-height:1;opacity:0;transition:opacity .2s ease,transform .2s ease;transform:translateY(-2px)}
+    .thumb-wrap:hover .edit-link{opacity:1;transform:translateY(0)}
+    .edit-link::before{content:"✎"}
+    .meta{display:flex;flex-direction:column;gap:6px;min-width:260px}
+    .meta .title{font-weight:700}
+    .meta .title a{color:var(--text);text-decoration:none}
+    .meta .title a:hover{text-decoration:underline}
+    .meta .channel a{color:var(--muted);font-size:12px;text-decoration:none}
+    .meta .channel a:hover{text-decoration:underline;color:var(--accent)}
+    .url-row{display:flex;gap:8px;align-items:center}
+    .url-row input[type=text]{flex:1}
+    .url-actions{display:flex;gap:6px;margin-left:auto}
+    input,select{width:100%;background:#0e121a;border:1px solid var(--border);padding:8px 10px;color:var(--text);border-radius:10px;outline:none}
+    .summary{display:flex;justify-content:flex-end;gap:16px;margin-top:8px;flex-wrap:wrap}
+    .summary .chip{background:var(--card);border:1px solid var(--border);padding:10px 12px;border-radius:12px}
+    .delete-btn{background:transparent;border:1px solid var(--border);color:var(--danger);padding:8px 10px;border-radius:10px}
+    .hr{height:1px;background:var(--border);margin:12px 0}
+    a{color:var(--accent);text-decoration:none}
+    .save-indicator{position:fixed;right:16px;bottom:12px;color:var(--muted);font-size:12px;background:rgba(0,0,0,.2);border:1px solid var(--border);padding:6px 10px;border-radius:10px}
+    .range-pop{position:absolute;top:58px;right:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;display:none;z-index:10;min-width:280px}
+    .range-pop h4{margin:0 0 8px 0;font-size:13px;color:var(--muted);font-weight:600}
+    .row{display:flex;gap:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Content Spend Tracker</h1>
+      <div class="controls">
+        <button id="addRowBtn" class="primary">+ Add New</button>
+        <button id="exportCsvBtn" disabled>Export CSV</button>
+        <button id="pickRangeBtn" class="primary" title="Pick date range">📅</button>
+        <button id="exportBtn">Export JSON</button>
+        <input id="importInput" type="file" accept="application/json" style="display:none" />
+        <button id="importBtn">Import JSON</button>
+        <button id="clearBtn" class="danger">Clear All</button>
+      </div>
+    </header>
+
+    <div id="rangePopover" class="range-pop">
+      <h4>Select date range</h4>
+      <div class="row" style="margin-bottom:8px">
+        <input id="expFrom" type="date" placeholder="From" />
+        <input id="expTo" type="date" placeholder="To" />
+      </div>
+      <div class="row" style="justify-content:flex-end">
+        <button id="applyRangeBtn" class="primary">Apply</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:48%">Video / Post</th>
+            <th style="width:10%">Duration</th>
+            <th style="width:12%">Price</th>
+            <th style="width:16%">Date</th>
+            <th style="width:8%">Paid</th>
+            <th style="width:6%">Delete</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+
+      <div class="summary">
+        <div class="chip">Unpaid Total: <strong id="unpaidTotal">$0.00</strong></div>
+        <div class="chip">Paid Total: <strong id="paidTotal">$0.00</strong></div>
+        <div class="chip">All Time Spend: <strong id="allTotal">$0.00</strong></div>
+      </div>
+
+      <div class="hr"></div>
+      <button id="addRowBtnBottom" class="primary">+ Add New</button>
+    </div>
+  </div>
+
+  <div id="saveIndicator" class="save-indicator">Saved — never</div>
+
+<script>
+(function(){
+  // ======= Utilities & State =======
+  const $ = (s)=>document.querySelector(s);
+  const LS_KEY = 'content_spend_tracker_v1';
+  const STATE = { rows: [], lastSaved: null, exportCfg: null };
+
+  const currency = (n)=>`$${(Number(n||0)).toFixed(2)}`;
+  const nowIso = ()=>new Date().toISOString();
+  const setSavedIndicator = ()=>{
+    const el = $('#saveIndicator');
+    el.textContent = STATE.lastSaved ? `Saved — ${new Date(STATE.lastSaved).toLocaleString()}` : 'Saved — never';
+  };
+  const persist = ()=>{ STATE.lastSaved = nowIso(); localStorage.setItem(LS_KEY, JSON.stringify(STATE)); setSavedIndicator(); };
+  const restore = ()=>{ try{ const raw = localStorage.getItem(LS_KEY); if(raw) Object.assign(STATE, JSON.parse(raw)); }catch{} };
+
+  const escCsv = (v)=>`"${String(v??'').replace(/"/g,'""')}"`;
+
+  // ======= Data helpers =======
+  const newRowData = ()=>({ url:'', title:'', channel:'', channelUrl:'', thumb:'', duration:'', price:'', date:'', paid:false, fetched:false });
+
+  const rowsInRange = (from, to)=>{
+    const f = new Date(from), t = new Date(to);
+    if (isNaN(f) || isNaN(t)) return [];
+    return STATE.rows.filter(r=>{ if(!r.date) return false; const d = new Date(r.date); return d >= f && d <= t; });
+  };
+
+  const totals = ()=>STATE.rows.reduce((acc,r)=>{ const n=+r.price||0; if(r.paid) acc.paid+=n; else acc.unpaid+=n; return acc; }, {paid:0,unpaid:0});
+
+  // ======= Rendering =======
+  function render(){
+    const tbody = $('#rows'); tbody.innerHTML = '';
+    STATE.rows.forEach((row, idx)=> tbody.appendChild(renderRow(row, idx)) );
+    applyTotals();
+    hydrateExportUi();
+    setSavedIndicator();
+  }
+
+  function renderRow(row, idx){
+    const tr = document.createElement('tr');
+
+    // Col 0: Video/Post cell
+    const td0 = document.createElement('td'); td0.className = 'video-cell';
+    const thumbWrap = document.createElement('div'); thumbWrap.className = 'thumb-wrap';
+    const img = document.createElement('img'); img.className = 'thumb'; img.src = row.thumb || ''; thumbWrap.appendChild(img);
+    const edit = document.createElement('button'); edit.className = 'edit-link'; edit.title = 'Edit link'; thumbWrap.appendChild(edit);
+
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const titleEl = document.createElement('div'); titleEl.className = 'title';
+    const link = document.createElement('a'); link.target = '_blank'; link.rel = 'noopener noreferrer'; link.href = row.url || '#'; titleEl.appendChild(link);
+    const channel = document.createElement('div'); channel.className = 'channel';
+    const channelLink = document.createElement('a'); channelLink.target = '_blank'; channelLink.rel = 'noopener noreferrer'; channelLink.href = row.channelUrl || '#'; channelLink.textContent = row.channel || ''; channel.appendChild(channelLink);
+    meta.appendChild(titleEl); meta.appendChild(channel);
+
+    const urlRow = document.createElement('div'); urlRow.className = 'url-row';
+    const url = document.createElement('input'); url.type = 'text'; url.placeholder = 'Paste YouTube or TikTok link'; url.value = row.url || '';
+    const act = document.createElement('div'); act.className = 'url-actions';
+    const fetchBtn = document.createElement('button'); fetchBtn.textContent = 'Fetch';
+    const open = document.createElement('a'); open.textContent = 'Open'; open.target = '_blank'; open.href = row.url || '#'; open.className = 'btn';
+    act.append(fetchBtn, open); urlRow.append(url, act); meta.append(urlRow);
+    td0.append(thumbWrap, meta); tr.appendChild(td0);
+
+    // Col 1: Duration
+    const td1 = document.createElement('td');
+    const duration = document.createElement('input'); duration.type = 'text'; duration.placeholder = 'mm:ss'; duration.value = row.duration || '';
+    td1.appendChild(duration); tr.appendChild(td1);
+
+    // Col 2: Price
+    const td2 = document.createElement('td');
+    const price = document.createElement('input'); price.type = 'number'; price.step = '0.01'; price.value = row.price || '';
+    td2.appendChild(price); tr.appendChild(td2);
+
+    // Col 3: Date
+    const td3 = document.createElement('td');
+    const date = document.createElement('input'); date.type = 'date'; date.value = row.date || '';
+    td3.appendChild(date); tr.appendChild(td3);
+
+    // Col 4: Paid
+    const td4 = document.createElement('td');
+    const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = row.paid; td4.appendChild(chk); tr.appendChild(td4);
+
+    // Col 5: Delete
+    const td5 = document.createElement('td');
+    const del = document.createElement('button'); del.className = 'delete-btn'; del.textContent = '×'; td5.appendChild(del); tr.appendChild(td5);
+
+    // ===== Events
+    url.addEventListener('input', (e)=>{ row.url = e.target.value.trim(); open.href = row.url || '#'; link.href = row.url || '#'; row.fetched = false; persist(); });
+    url.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); fetchBtn.click(); }});
+    url.addEventListener('blur', ()=>{ if(url.value && !row.fetched){ fetchBtn.click(); }});
+    url.addEventListener('paste', ()=>{ setTimeout(()=>{ if(url.value.trim() && !row.fetched){ fetchBtn.click(); } }, 80); });
+
+    fetchBtn.addEventListener('click', async()=>{
+      if(!row.url) return;
+      try{
+        let endpoint = '';
+        if(/tiktok\.com\//i.test(row.url)){
+          endpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(row.url)}`;
+        } else if(/(youtube\.com|youtu\.be)\//i.test(row.url)){
+          endpoint = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(row.url)}`;
+        }
+        let metaData = null;
+        if(endpoint){ metaData = await fetch(endpoint).then(r=>r.ok?r.json():null).catch(()=>null); }
+        if(metaData){
+          row.title = metaData.title || row.title;
+          row.channel = metaData.author_name || row.channel;
+          row.thumb = metaData.thumbnail_url || row.thumb;
+          row.channelUrl = metaData.author_url || row.channelUrl || '#';
+          link.textContent = row.title; channelLink.textContent = row.channel; channelLink.href = row.channelUrl || '#'; img.src = row.thumb || ''; link.href = row.url;
+        }
+      }catch{}
+      row.fetched = true; open.href = row.url || '#'; link.href = row.url || '#'; updateUI(); persist();
+    });
+
+    edit.addEventListener('click',(e)=>{ e.stopPropagation(); row.fetched=false; persist(); render(); });
+    thumbWrap.addEventListener('click',()=>{ if(row.fetched && row.url) window.open(row.url,'_blank'); });
+    duration.addEventListener('input',(e)=>{ row.duration=e.target.value; persist(); });
+    price.addEventListener('input',(e)=>{ row.price=e.target.value; applyTotals(); persist(); });
+    date.addEventListener('input',(e)=>{ row.date=e.target.value; persist(); });
+    chk.addEventListener('change',(e)=>{ row.paid=e.target.checked; applyTotals(); persist(); });
+    del.addEventListener('click',()=>{ STATE.rows.splice(idx,1); render(); persist(); });
+
+    function updateUI(){
+      if(row.fetched){
+        urlRow.style.display='none'; img.style.display=''; link.textContent=row.title; channelLink.textContent=row.channel; channelLink.href=row.channelUrl||'#'; link.href=row.url||'#';
+      } else {
+        urlRow.style.display=''; img.style.display='none'; link.textContent=''; channelLink.textContent=''; channelLink.href='#'; link.href='#';
+      }
+    }
+    updateUI();
+    return tr;
+  }
+
+  function applyTotals(){
+    const t = totals();
+    $('#paidTotal').textContent   = currency(t.paid);
+    $('#unpaidTotal').textContent = currency(t.unpaid);
+    $('#allTotal').textContent    = currency(t.paid + t.unpaid);
+  }
+
+  // ======= CSV Export =======
+  function toCSV(rows){
+    const header = ['URL','Duration','Price','Paid/Unpaid'];
+    const lines = [header.join(',')];
+    rows.forEach(r=> lines.push([escCsv(r.url), escCsv(r.duration), escCsv(r.price), escCsv(r.paid?'Paid':'Unpaid')].join(',')) );
+    return lines.join('\n');
+  }
+  function downloadCSV(filename, csv){
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  }
+  function hydrateExportUi(){
+    const btn = $('#exportCsvBtn');
+    if(STATE.exportCfg){ btn.disabled=false; btn.classList.add('primary'); btn.title=`Export ${STATE.exportCfg.from} → ${STATE.exportCfg.to}`; }
+    else { btn.disabled=true; btn.classList.remove('primary'); btn.title='Pick a date range to enable export'; }
+  }
+  function performExport(){
+    if(!STATE.exportCfg){ alert('Pick a date range first'); return; }
+    const rows = rowsInRange(STATE.exportCfg.from, STATE.exportCfg.to);
+    if(!rows.length){ alert('No rows match the selected period.'); return; }
+    const name = `content-spend-${STATE.exportCfg.from}_to_${STATE.exportCfg.to}.csv`;
+    downloadCSV(name, toCSV(rows));
+  }
+
+  // ======= Toolbar & Popover Wiring =======
+  $('#addRowBtn').onclick = $('#addRowBtnBottom').onclick = ()=>{ STATE.rows.push(newRowData()); render(); persist(); };
+  $('#exportBtn').onclick = ()=>{
+    const blob = new Blob([JSON.stringify({rows:STATE.rows}, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `content-spend-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  };
+  $('#importBtn').onclick = ()=> $('#importInput').click();
+  $('#importInput').onchange = (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{ try{ const d = JSON.parse(fr.result); if(d.rows) STATE.rows = d.rows; render(); persist(); } catch{ alert('Invalid JSON'); } };
+    fr.readAsText(f);
+  };
+  $('#clearBtn').onclick = ()=>{ if(confirm('Clear all data?')){ STATE.rows = []; localStorage.removeItem(LS_KEY); render(); persist(); } };
+  $('#exportCsvBtn').onclick = performExport;
+
+  const pop = $('#rangePopover');
+  $('#pickRangeBtn').onclick = ()=>{ pop.style.display = pop.style.display==='block' ? 'none' : 'block'; };
+  document.addEventListener('click', (e)=>{ if(!pop.contains(e.target) && e.target.id!=='pickRangeBtn'){ pop.style.display='none'; } });
+  $('#applyRangeBtn').onclick = ()=>{
+    const from = $('#expFrom').value, to = $('#expTo').value;
+    if(!from || !to){ alert('Pick From and To'); return; }
+    STATE.exportCfg = {from, to}; hydrateExportUi(); persist(); pop.style.display='none';
+  };
+
+  // ======= Boot =======
+  restore();
+  if(!STATE.rows.length) STATE.rows.push(newRowData());
+  render();
+})();
+</script>
+</body>
+</html>
