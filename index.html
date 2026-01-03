@@ -16,7 +16,9 @@
   * { box-sizing: border-box; }
 
   /* --- LAYOUT --- */
-  .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; }
+  /* FIXED: Removed min-height and flex:1 to allow shrinking */
+  .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  
   .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
   
@@ -38,7 +40,8 @@
   .text-green { color: var(--success); }
 
   /* --- DATA TABLE --- */
-  .table-wrap { flex: 1; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+  /* FIXED: Table wrapper now hugs content instead of stretching */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--card); margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; min-width: 600px; }
   thead { background: #1f1f23; }
   th { padding: 12px; text-align: left; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
@@ -49,7 +52,7 @@
   .row-title { font-weight: 600; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 250px; color: var(--text); text-decoration: none; }
   .row-chan { font-size: 12px; color: var(--muted); }
 
-  /* --- MODALS (CUSTOM OVERLAY) --- */
+  /* --- MODALS --- */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 999;
     display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px);
@@ -129,7 +132,7 @@
     </table>
   </div>
   
-  <div style="margin-top:20px; text-align:right;">
+  <div style="text-align:right;">
     <button class="danger" onclick="app.reset()">Reset All Data</button>
   </div>
 </div>
@@ -184,7 +187,7 @@
 
 <script>
 /**
- * Content Spend Tracker - Final
+ * Content Spend Tracker - Final Responsive V2
  */
 const STORAGE_KEY = 'CST_FINAL_V1';
 
@@ -194,7 +197,7 @@ const db = {
     channels: [],
     prices: { p8: 20, p9: 25, p10: 30 },
     videos: [],
-    ignored: [], // Stores IDs of deleted videos
+    ignored: [],
     hidePaid: false,
     sortField: 'date',
     sortDesc: true
@@ -360,7 +363,7 @@ const app = {
         db.data.ignored = [];
         db.save();
         ui.renderIgnoredCount();
-        ui.toast("Ignore List Cleared");
+        ui.toast("Ignored List Cleared. Click Sync!");
     }
   },
 
@@ -469,7 +472,7 @@ const ui = {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2000);
+    setTimeout(() => t.classList.remove('show'), 3000);
   },
 
   renderChannels() {
