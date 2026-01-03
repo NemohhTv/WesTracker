@@ -1,301 +1,551 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Content Spend Tracker</title>
-  <style>
-    :root { --bg:#0f1115; --card:#151822; --muted:#aab2c0; --text:#e7ecf3; --accent:#4da3ff; --ok:#22c55e; --danger:#ef4444; --border:#232836; }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-    .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
-    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
-    h1{font-size:20px;margin:0}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    button,.btn{background:var(--card);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:10px;cursor:pointer}
-    button[disabled]{opacity:.6;cursor:not-allowed}
-    button:hover{border-color:#2e3446}
-    .primary{background:var(--accent);color:#08111c;border:0}
-    .danger{background:var(--danger);border:0}
-    .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:8px}
-    table{width:100%;border-collapse:separate;border-spacing:0 8px}
-    thead th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 8px}
-    tbody tr{background:#121521;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-    tbody tr td{padding:8px;vertical-align:top}
-    .video-cell{display:flex;gap:12px;align-items:flex-start}
-    .thumb{width:120px;height:68px;background:#0b0d13;border:1px solid var(--border);border-radius:10px;object-fit:cover;display:block}
-    .thumb-wrap{position:relative;display:inline-block}
-    .edit-link{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);border:none;color:#fff;font-size:14px;border-radius:999px;padding:6px;cursor:pointer;line-height:1;opacity:0;transition:opacity .2s ease,transform .2s ease;transform:translateY(-2px)}
-    .thumb-wrap:hover .edit-link{opacity:1;transform:translateY(0)}
-    .edit-link::before{content:"✎"}
-    .meta{display:flex;flex-direction:column;gap:6px;min-width:260px}
-    .meta .title{font-weight:700}
-    .meta .title a{color:var(--text);text-decoration:none}
-    .meta .title a:hover{text-decoration:underline}
-    .meta .channel a{color:var(--muted);font-size:12px;text-decoration:none}
-    .meta .channel a:hover{text-decoration:underline;color:var(--accent)}
-    .url-row{display:flex;gap:8px;align-items:center}
-    .url-row input[type=text]{flex:1}
-    .url-actions{display:flex;gap:6px;margin-left:auto}
-    input,select{width:100%;background:#0e121a;border:1px solid var(--border);padding:8px 10px;color:var(--text);border-radius:10px;outline:none}
-    .summary{display:flex;justify-content:flex-end;gap:16px;margin-top:8px;flex-wrap:wrap}
-    .summary .chip{background:var(--card);border:1px solid var(--border);padding:10px 12px;border-radius:12px}
-    .delete-btn{background:transparent;border:1px solid var(--border);color:var(--danger);padding:8px 10px;border-radius:10px}
-    .hr{height:1px;background:var(--border);margin:12px 0}
-    a{color:var(--accent);text-decoration:none}
-    .save-indicator{position:fixed;right:16px;bottom:12px;color:var(--muted);font-size:12px;background:rgba(0,0,0,.2);border:1px solid var(--border);padding:6px 10px;border-radius:10px}
-    .range-pop{position:absolute;top:58px;right:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;display:none;z-index:10;min-width:280px}
-    .range-pop h4{margin:0 0 8px 0;font-size:13px;color:var(--muted);font-weight:600}
-    .row{display:flex;gap:8px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Content Spend Tracker</title>
+<style>
+  :root {
+    --bg: #09090b; --card: #18181b; --border: #27272a; --text: #e4e4e7;
+    --muted: #a1a1aa; --primary: #3b82f6; --danger: #ef4444; --success: #22c55e;
+  }
+  body { 
+    margin: 0; background: var(--bg); color: var(--text); 
+    font-family: system-ui, -apple-system, sans-serif; font-size: 14px; 
+  }
+  * { box-sizing: border-box; }
+
+  /* --- LAYOUT --- */
+  .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  
+  /* --- UI ELEMENTS --- */
+  button, input {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 6px; font: inherit; cursor: pointer;
+  }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--primary); border-color: var(--primary); color: white; }
+  button.danger { color: var(--danger); border-color: var(--border); }
+  input { cursor: text; }
+  
+  /* --- STATS GRID --- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .stat-box { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; text-align: center; }
+  .stat-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px; }
+  .stat-val { font-size: 24px; font-weight: 700; }
+  .text-green { color: var(--success); }
+
+  /* --- DATA TABLE --- */
+  .table-wrap { flex: 1; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+  table { width: 100%; border-collapse: collapse; min-width: 600px; }
+  thead { background: #1f1f23; }
+  th { padding: 12px; text-align: left; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  
+  .thumb { width: 80px; height: 45px; background: #000; object-fit: cover; border-radius: 4px; display: block; }
+  .row-title { font-weight: 600; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 250px; color: var(--text); text-decoration: none; }
+  .row-chan { font-size: 12px; color: var(--muted); }
+
+  /* --- MODALS (CUSTOM OVERLAY) --- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 999;
+    display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+  }
+  .modal-overlay.open { display: flex; } 
+  
+  .modal-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .modal-head { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h3 { margin: 0; font-size: 16px; }
+  .modal-body { padding: 20px; }
+  .modal-foot { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.2); }
+
+  /* --- UTILS --- */
+  .flex-col { display: flex; flex-direction: column; gap: 10px; }
+  .flex-row { display: flex; gap: 10px; align-items: center; }
+  .grow { flex: 1; }
+  .mt { margin-top: 15px; }
+  .channel-row { display: flex; justify-content: space-between; padding: 8px; background: var(--bg); border-radius: 6px; align-items: center; margin-bottom: 5px; }
+
+  /* --- TOAST --- */
+  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--card); border-left: 4px solid var(--success); padding: 12px 20px; border-radius: 4px; transform: translateY(100px); transition: transform 0.3s ease; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 1000; }
+  #toast.show { transform: translateY(0); }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Content Spend Tracker</h1>
-      <div class="controls">
-        <button id="addRowBtn" class="primary">+ Add New</button>
-        <button id="exportCsvBtn" disabled>Export CSV</button>
-        <button id="pickRangeBtn" class="primary" title="Pick date range">📅</button>
-        <button id="exportBtn">Export JSON</button>
-        <input id="importInput" type="file" accept="application/json" style="display:none" />
-        <button id="importBtn">Import JSON</button>
-        <button id="clearBtn" class="danger">Clear All</button>
-      </div>
-    </header>
 
-    <div id="rangePopover" class="range-pop">
-      <h4>Select date range</h4>
-      <div class="row" style="margin-bottom:8px">
-        <input id="expFrom" type="date" placeholder="From" />
-        <input id="expTo" type="date" placeholder="To" />
-      </div>
-      <div class="row" style="justify-content:flex-end">
-        <button id="applyRangeBtn" class="primary">Apply</button>
-      </div>
-    </div>
-
-    <div class="panel">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:48%">Video / Post</th>
-            <th style="width:10%">Duration</th>
-            <th style="width:12%">Price</th>
-            <th style="width:16%">Date</th>
-            <th style="width:8%">Paid</th>
-            <th style="width:6%">Delete</th>
-          </tr>
-        </thead>
-        <tbody id="rows"></tbody>
-      </table>
-
-      <div class="summary">
-        <div class="chip">Unpaid Total: <strong id="unpaidTotal">$0.00</strong></div>
-        <div class="chip">Paid Total: <strong id="paidTotal">$0.00</strong></div>
-        <div class="chip">All Time Spend: <strong id="allTotal">$0.00</strong></div>
-      </div>
-
-      <div class="hr"></div>
-      <button id="addRowBtnBottom" class="primary">+ Add New</button>
+<div class="app-container">
+  <div class="header">
+    <h1 style="margin:0; font-size:22px;">Content Spend Tracker</h1>
+    <div class="controls">
+      <button onclick="app.sync()" id="btnSync" class="primary">Sync Latest</button>
+      <button onclick="app.addLink()">Add Link</button>
+      <button onclick="ui.openModal('modalSettings')">Settings</button>
+      <button onclick="app.togglePaid()" id="btnPaid">Hide Paid</button>
+      <button onclick="app.exportCSV()">Export</button>
     </div>
   </div>
 
-  <div id="saveIndicator" class="save-indicator">Saved — never</div>
+  <div class="stats">
+    <div class="stat-box">
+      <span class="stat-label">Pending</span>
+      <span class="stat-val text-green" id="s-unpaid">$0.00</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">Paid</span>
+      <span class="stat-val" id="s-paid" style="color:var(--muted)">$0.00</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">Total Lifetime</span>
+      <span class="stat-val" id="s-total">$0.00</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">Videos</span>
+      <span class="stat-val" id="s-count">0</span>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="app.sort('title')">Video Info ↕</th>
+          <th onclick="app.sort('sec')">Duration ↕</th>
+          <th onclick="app.sort('price')">Price ↕</th>
+          <th onclick="app.sort('date')">Date ↕</th>
+          <th onclick="app.sort('paid')">Status ↕</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        </tbody>
+    </table>
+  </div>
+  
+  <div style="margin-top:20px; text-align:right;">
+    <button class="danger" onclick="app.reset()">Reset All Data</button>
+  </div>
+</div>
+
+<div id="modalSettings" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Settings</h3>
+      <button onclick="ui.closeModal('modalSettings')" style="border:none; background:none; font-size:18px;">✕</button>
+    </div>
+    <div class="modal-body flex-col">
+      <label style="font-weight:bold; font-size:12px; color:var(--muted)">YOUTUBE API KEY (Required for Sync)</label>
+      <input type="password" id="inpApiKey" placeholder="Paste your API Key here...">
+      
+      <div class="mt"></div>
+      <label style="font-weight:bold; font-size:12px; color:var(--muted)">AUTO-PRICING (Minutes = $)</label>
+      <div class="flex-row">
+        <div class="grow"><small>8 mins</small><input type="number" id="price8" class="grow" style="width:100%"></div>
+        <div class="grow"><small>9 mins</small><input type="number" id="price9" class="grow" style="width:100%"></div>
+        <div class="grow"><small>10+ mins</small><input type="number" id="price10" class="grow" style="width:100%"></div>
+      </div>
+
+      <div class="mt"></div>
+      <label style="font-weight:bold; font-size:12px; color:var(--muted)">TRACKED CHANNELS</label>
+      <div id="chanList"></div>
+      
+      <div class="flex-row mt">
+        <input id="inpNewChan" class="grow" placeholder="@Handle or Channel ID">
+        <button class="primary" onclick="app.addChannel()" id="btnAddChan">Add</button>
+      </div>
+
+      <div class="mt" style="border-top:1px solid var(--border); padding-top:15px;">
+        <label style="font-weight:bold; font-size:12px; color:var(--muted)">IGNORED VIDEOS (Deleted)</label>
+        <div class="flex-row" style="margin-top:5px; background:var(--bg); padding:10px; border-radius:6px; border:1px solid var(--border)">
+           <div class="grow">
+             <span id="ignoredCount" style="font-weight:bold; display:block">0</span>
+             <span style="font-size:11px; color:var(--muted)">videos hidden from Sync</span>
+           </div>
+           <button class="danger" onclick="app.clearIgnored()" style="font-size:12px">Clear List</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <button onclick="ui.closeModal('modalSettings')">Cancel</button>
+      <button class="primary" onclick="app.saveSettings()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">Saved!</div>
 
 <script>
-(function(){
-  // ======= Utilities & State =======
-  const $ = (s)=>document.querySelector(s);
-  const LS_KEY = 'content_spend_tracker_v1';
-  const STATE = { rows: [], lastSaved: null, exportCfg: null };
+/**
+ * Content Spend Tracker - Final
+ */
+const STORAGE_KEY = 'CST_FINAL_V1';
 
-  const currency = (n)=>`$${(Number(n||0)).toFixed(2)}`;
-  const nowIso = ()=>new Date().toISOString();
-  const setSavedIndicator = ()=>{
-    const el = $('#saveIndicator');
-    el.textContent = STATE.lastSaved ? `Saved — ${new Date(STATE.lastSaved).toLocaleString()}` : 'Saved — never';
-  };
-  const persist = ()=>{ STATE.lastSaved = nowIso(); localStorage.setItem(LS_KEY, JSON.stringify(STATE)); setSavedIndicator(); };
-  const restore = ()=>{ try{ const raw = localStorage.getItem(LS_KEY); if(raw) Object.assign(STATE, JSON.parse(raw)); }catch{} };
-
-  const escCsv = (v)=>`"${String(v??'').replace(/"/g,'""')}"`;
-
-  // ======= Data helpers =======
-  const newRowData = ()=>({ url:'', title:'', channel:'', channelUrl:'', thumb:'', duration:'', price:'', date:'', paid:false, fetched:false });
-
-  const rowsInRange = (from, to)=>{
-    const f = new Date(from), t = new Date(to);
-    if (isNaN(f) || isNaN(t)) return [];
-    return STATE.rows.filter(r=>{ if(!r.date) return false; const d = new Date(r.date); return d >= f && d <= t; });
-  };
-
-  const totals = ()=>STATE.rows.reduce((acc,r)=>{ const n=+r.price||0; if(r.paid) acc.paid+=n; else acc.unpaid+=n; return acc; }, {paid:0,unpaid:0});
-
-  // ======= Rendering =======
-  function render(){
-    const tbody = $('#rows'); tbody.innerHTML = '';
-    STATE.rows.forEach((row, idx)=> tbody.appendChild(renderRow(row, idx)) );
-    applyTotals();
-    hydrateExportUi();
-    setSavedIndicator();
+const db = {
+  data: {
+    key: '',
+    channels: [],
+    prices: { p8: 20, p9: 25, p10: 30 },
+    videos: [],
+    ignored: [], // Stores IDs of deleted videos
+    hidePaid: false,
+    sortField: 'date',
+    sortDesc: true
+  },
+  
+  load() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) {
+      try { 
+        const parsed = JSON.parse(raw);
+        this.data = { ...this.data, ...parsed };
+        if(!Array.isArray(this.data.ignored)) this.data.ignored = [];
+      } catch(e) { console.error("Load error", e); }
+    }
+  },
+  
+  save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
   }
+};
 
-  function renderRow(row, idx){
-    const tr = document.createElement('tr');
+const api = {
+  async req(endpoint, params) {
+    const k = document.getElementById('inpApiKey').value.trim() || db.data.key;
+    if(!k) throw new Error("Missing API Key. Please check Settings.");
+    
+    const url = new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`);
+    url.search = new URLSearchParams({ key: k, ...params });
+    
+    const res = await fetch(url);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error.message);
+    return json;
+  },
 
-    // Col 0: Video/Post cell
-    const td0 = document.createElement('td'); td0.className = 'video-cell';
-    const thumbWrap = document.createElement('div'); thumbWrap.className = 'thumb-wrap';
-    const img = document.createElement('img'); img.className = 'thumb'; img.src = row.thumb || ''; thumbWrap.appendChild(img);
-    const edit = document.createElement('button'); edit.className = 'edit-link'; edit.title = 'Edit link'; thumbWrap.appendChild(edit);
+  async resolveChannel(input) {
+    const isHandle = input.startsWith('@');
+    const params = { part: 'snippet,contentDetails' };
+    if(isHandle) params.forHandle = input;
+    else params.id = input;
+    
+    const data = await this.req('channels', params);
+    if(!data.items?.length) throw new Error("Channel not found");
+    const item = data.items[0];
+    return {
+      id: item.id,
+      name: item.snippet.title,
+      uploads: item.contentDetails.relatedPlaylists.uploads
+    };
+  },
 
-    const meta = document.createElement('div'); meta.className = 'meta';
-    const titleEl = document.createElement('div'); titleEl.className = 'title';
-    const link = document.createElement('a'); link.target = '_blank'; link.rel = 'noopener noreferrer'; link.href = row.url || '#'; titleEl.appendChild(link);
-    const channel = document.createElement('div'); channel.className = 'channel';
-    const channelLink = document.createElement('a'); channelLink.target = '_blank'; channelLink.rel = 'noopener noreferrer'; channelLink.href = row.channelUrl || '#'; channelLink.textContent = row.channel || ''; channel.appendChild(channelLink);
-    meta.appendChild(titleEl); meta.appendChild(channel);
+  async getVideos(ids) {
+    if(!ids.length) return [];
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));
+    let all = [];
+    for(const chunk of chunks) {
+      const data = await this.req('videos', { part: 'snippet,contentDetails', id: chunk.join(',') });
+      if(data.items) all = all.concat(data.items);
+    }
+    return all;
+  }
+};
 
-    const urlRow = document.createElement('div'); urlRow.className = 'url-row';
-    const url = document.createElement('input'); url.type = 'text'; url.placeholder = 'Paste YouTube or TikTok link'; url.value = row.url || '';
-    const act = document.createElement('div'); act.className = 'url-actions';
-    const fetchBtn = document.createElement('button'); fetchBtn.textContent = 'Fetch';
-    const open = document.createElement('a'); open.textContent = 'Open'; open.target = '_blank'; open.href = row.url || '#'; open.className = 'btn';
-    act.append(fetchBtn, open); urlRow.append(url, act); meta.append(urlRow);
-    td0.append(thumbWrap, meta); tr.appendChild(td0);
+const app = {
+  init() {
+    db.load();
+    ui.initInputs();
+    this.render();
+  },
 
-    // Col 1: Duration
-    const td1 = document.createElement('td');
-    const duration = document.createElement('input'); duration.type = 'text'; duration.placeholder = 'mm:ss'; duration.value = row.duration || '';
-    td1.appendChild(duration); tr.appendChild(td1);
+  render() {
+    ui.renderTable();
+    ui.renderStats();
+    ui.renderChannels();
+    ui.renderIgnoredCount();
+    document.getElementById('btnPaid').textContent = db.data.hidePaid ? "Show Paid" : "Hide Paid";
+  },
 
-    // Col 2: Price
-    const td2 = document.createElement('td');
-    const price = document.createElement('input'); price.type = 'number'; price.step = '0.01'; price.value = row.price || '';
-    td2.appendChild(price); tr.appendChild(td2);
+  processVideo(apiItem) {
+    const d = apiItem.contentDetails.duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    const sec = ((parseInt(d[1])||0)*3600) + ((parseInt(d[2])||0)*60) + (parseInt(d[3])||0);
+    
+    const mins = Math.floor(sec/60);
+    let price = 0;
+    if(mins === 8) price = db.data.prices.p8;
+    else if(mins === 9) price = db.data.prices.p9;
+    else if(mins >= 10) price = db.data.prices.p10;
 
-    // Col 3: Date
-    const td3 = document.createElement('td');
-    const date = document.createElement('input'); date.type = 'date'; date.value = row.date || '';
-    td3.appendChild(date); tr.appendChild(td3);
+    return {
+      id: apiItem.id,
+      title: apiItem.snippet.title,
+      chan: apiItem.snippet.channelTitle,
+      date: apiItem.snippet.publishedAt.slice(0,10),
+      thumb: apiItem.snippet.thumbnails?.medium?.url,
+      sec: sec,
+      price: price > 0 ? price : '',
+      paid: false
+    };
+  },
 
-    // Col 4: Paid
-    const td4 = document.createElement('td');
-    const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = row.paid; td4.appendChild(chk); tr.appendChild(td4);
+  addVideoRow(vObj) {
+    if(db.data.videos.some(x => x.id === vObj.id)) return false;
+    
+    // Remove from ignored list if manually adding back
+    const ignoreIdx = db.data.ignored.indexOf(vObj.id);
+    if(ignoreIdx > -1) db.data.ignored.splice(ignoreIdx, 1);
 
-    // Col 5: Delete
-    const td5 = document.createElement('td');
-    const del = document.createElement('button'); del.className = 'delete-btn'; del.textContent = '×'; td5.appendChild(del); tr.appendChild(td5);
+    db.data.videos.push(vObj);
+    return true;
+  },
 
-    // ===== Events
-    url.addEventListener('input', (e)=>{ row.url = e.target.value.trim(); open.href = row.url || '#'; link.href = row.url || '#'; row.fetched = false; persist(); });
-    url.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); fetchBtn.click(); }});
-    url.addEventListener('blur', ()=>{ if(url.value && !row.fetched){ fetchBtn.click(); }});
-    url.addEventListener('paste', ()=>{ setTimeout(()=>{ if(url.value.trim() && !row.fetched){ fetchBtn.click(); } }, 80); });
+  async addLink() {
+    const url = prompt("Paste YouTube URL:");
+    if(!url) return;
+    const match = url.match(/(?:v=|\/)([a-zA-Z0-9_-]{11})/);
+    if(!match) return alert("Invalid URL");
+    
+    try {
+      const details = await api.getVideos([match[1]]);
+      if(details.length && this.addVideoRow(this.processVideo(details[0]))) {
+        db.save();
+        this.render();
+        ui.toast("Link Added");
+      } else { alert("Video not found or already exists"); }
+    } catch(e) { alert(e.message); }
+  },
 
-    fetchBtn.addEventListener('click', async()=>{
-      if(!row.url) return;
-      try{
-        let endpoint = '';
-        if(/tiktok\.com\//i.test(row.url)){
-          endpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(row.url)}`;
-        } else if(/(youtube\.com|youtu\.be)\//i.test(row.url)){
-          endpoint = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(row.url)}`;
+  async addChannel() {
+    const inp = document.getElementById('inpNewChan');
+    const val = inp.value.trim();
+    if(!val) return;
+    const btn = document.getElementById('btnAddChan');
+    btn.textContent = "...";
+    try {
+      const info = await api.resolveChannel(val);
+      if(db.data.channels.some(c => c.id === info.id)) throw new Error("Already added");
+      db.data.channels.push(info);
+      inp.value = '';
+      ui.renderChannels(); 
+    } catch(e) { alert(e.message); }
+    btn.textContent = "Add";
+  },
+
+  removeChannel(idx) {
+    db.data.channels.splice(idx, 1);
+    ui.renderChannels();
+  },
+
+  saveSettings() {
+    db.data.key = document.getElementById('inpApiKey').value.trim();
+    db.data.prices.p8 = parseFloat(document.getElementById('price8').value) || 0;
+    db.data.prices.p9 = parseFloat(document.getElementById('price9').value) || 0;
+    db.data.prices.p10 = parseFloat(document.getElementById('price10').value) || 0;
+    db.save();
+    ui.toast("Settings Saved");
+    ui.closeModal('modalSettings');
+    this.render();
+  },
+  
+  clearIgnored() {
+    if(confirm(`Remove ${db.data.ignored.length} videos from the ignore list? They may reappear on next Sync.`)) {
+        db.data.ignored = [];
+        db.save();
+        ui.renderIgnoredCount();
+        ui.toast("Ignore List Cleared");
+    }
+  },
+
+  async sync() {
+    const btn = document.getElementById('btnSync');
+    btn.disabled = true; btn.textContent = "Syncing...";
+    
+    try {
+      let newCount = 0;
+      for(const ch of db.data.channels) {
+        const pl = await api.req('playlistItems', { playlistId: ch.uploads, maxResults: 15, part: 'contentDetails' });
+        const ids = pl.items.map(x => x.contentDetails.videoId);
+        
+        // Filter out existing AND ignored
+        const needed = ids.filter(id => 
+            !db.data.videos.some(v => v.id === id) && 
+            !db.data.ignored.includes(id)
+        );
+        
+        if(needed.length) {
+          const details = await api.getVideos(needed);
+          details.forEach(d => {
+            if(this.addVideoRow(this.processVideo(d))) newCount++;
+          });
         }
-        let metaData = null;
-        if(endpoint){ metaData = await fetch(endpoint).then(r=>r.ok?r.json():null).catch(()=>null); }
-        if(metaData){
-          row.title = metaData.title || row.title;
-          row.channel = metaData.author_name || row.channel;
-          row.thumb = metaData.thumbnail_url || row.thumb;
-          row.channelUrl = metaData.author_url || row.channelUrl || '#';
-          link.textContent = row.title; channelLink.textContent = row.channel; channelLink.href = row.channelUrl || '#'; img.src = row.thumb || ''; link.href = row.url;
-        }
-      }catch{}
-      row.fetched = true; open.href = row.url || '#'; link.href = row.url || '#'; updateUI(); persist();
+      }
+      db.save();
+      this.render();
+      ui.toast(newCount === 0 ? "No new videos" : `Synced ${newCount} new`);
+    } catch(e) { alert(e.message); }
+    
+    btn.disabled = false; btn.textContent = "Sync Latest";
+  },
+
+  updateRow(id, field, value) {
+    const row = db.data.videos.find(v => v.id === id);
+    if(row) {
+      row[field] = field === 'paid' ? value : value; 
+      db.save();
+      this.render();
+    }
+  },
+
+  deleteRow(id) {
+    if(confirm("Delete this video? It will be ignored in future syncs.")) {
+      if(!db.data.ignored.includes(id)) db.data.ignored.push(id);
+      db.data.videos = db.data.videos.filter(v => v.id !== id);
+      db.save();
+      this.render();
+    }
+  },
+
+  togglePaid() {
+    db.data.hidePaid = !db.data.hidePaid;
+    db.save();
+    this.render();
+  },
+
+  sort(field) {
+    if(db.data.sortField === field) db.data.sortDesc = !db.data.sortDesc;
+    else { db.data.sortField = field; db.data.sortDesc = true; }
+    this.render();
+  },
+
+  exportCSV() {
+    const head = "Date,Video,Channel,Duration,Price,Paid\n";
+    const rows = db.data.videos.map(v => 
+      `${v.date},"${v.title.replace(/"/g,'""')}","${v.chan}",${ui.fmtTime(v.sec)},${v.price},${v.paid?'Yes':'No'}`
+    ).join("\n");
+    
+    const blob = new Blob([head + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'spend_tracker.csv';
+    a.click();
+  },
+  
+  reset() {
+    if(confirm("Wipe all data? This cannot be undone.")) {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+  }
+};
+
+const ui = {
+  fmtMoney: new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }),
+  
+  fmtTime(sec) {
+    const m = Math.floor(sec/60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2,'0')}`;
+  },
+
+  initInputs() {
+    document.getElementById('inpApiKey').value = db.data.key;
+    document.getElementById('price8').value = db.data.prices.p8;
+    document.getElementById('price9').value = db.data.prices.p9;
+    document.getElementById('price10').value = db.data.prices.p10;
+  },
+
+  openModal(id) { document.getElementById(id).classList.add('open'); },
+  closeModal(id) { document.getElementById(id).classList.remove('open'); },
+
+  toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  },
+
+  renderChannels() {
+    const c = document.getElementById('chanList');
+    c.innerHTML = '';
+    if(!db.data.channels.length) c.innerHTML = '<div style="color:var(--muted); font-size:12px; font-style:italic;">No channels added.</div>';
+    
+    db.data.channels.forEach((ch, idx) => {
+      c.innerHTML += `
+        <div class="channel-row">
+          <div><strong>${ch.name}</strong> <span style="font-size:10px; color:var(--muted)">(${ch.id})</span></div>
+          <button class="danger" style="padding:4px 8px; font-size:11px;" onclick="app.removeChannel(${idx})">Remove</button>
+        </div>
+      `;
+    });
+  },
+  
+  renderIgnoredCount() {
+      const c = document.getElementById('ignoredCount');
+      if(c) c.textContent = `${db.data.ignored.length}`;
+  },
+
+  renderStats() {
+    let un = 0, pd = 0;
+    db.data.videos.forEach(v => {
+      const val = parseFloat(v.price) || 0;
+      if(v.paid) pd += val; else un += val;
+    });
+    document.getElementById('s-unpaid').textContent = this.fmtMoney.format(un);
+    document.getElementById('s-paid').textContent = this.fmtMoney.format(pd);
+    document.getElementById('s-total').textContent = this.fmtMoney.format(un + pd);
+    document.getElementById('s-count').textContent = db.data.videos.length;
+  },
+
+  renderTable() {
+    const tb = document.getElementById('tbody');
+    let list = [...db.data.videos];
+    
+    if(db.data.hidePaid) list = list.filter(v => !v.paid);
+    
+    const f = db.data.sortField;
+    const m = db.data.sortDesc ? -1 : 1;
+    list.sort((a,b) => {
+      let va = a[f], vb = b[f];
+      if(f === 'price' || f === 'sec') { va = Number(va)||0; vb = Number(vb)||0; }
+      return va > vb ? m : -m;
     });
 
-    edit.addEventListener('click',(e)=>{ e.stopPropagation(); row.fetched=false; persist(); render(); });
-    thumbWrap.addEventListener('click',()=>{ if(row.fetched && row.url) window.open(row.url,'_blank'); });
-    duration.addEventListener('input',(e)=>{ row.duration=e.target.value; persist(); });
-    price.addEventListener('input',(e)=>{ row.price=e.target.value; applyTotals(); persist(); });
-    date.addEventListener('input',(e)=>{ row.date=e.target.value; persist(); });
-    chk.addEventListener('change',(e)=>{ row.paid=e.target.checked; applyTotals(); persist(); });
-    del.addEventListener('click',()=>{ STATE.rows.splice(idx,1); render(); persist(); });
-
-    function updateUI(){
-      if(row.fetched){
-        urlRow.style.display='none'; img.style.display=''; link.textContent=row.title; channelLink.textContent=row.channel; channelLink.href=row.channelUrl||'#'; link.href=row.url||'#';
-      } else {
-        urlRow.style.display=''; img.style.display='none'; link.textContent=''; channelLink.textContent=''; channelLink.href='#'; link.href='#';
-      }
+    if(!list.length) {
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color:var(--muted)">No videos found.</td></tr>`;
+      return;
     }
-    updateUI();
-    return tr;
-  }
 
-  function applyTotals(){
-    const t = totals();
-    $('#paidTotal').textContent   = currency(t.paid);
-    $('#unpaidTotal').textContent = currency(t.unpaid);
-    $('#allTotal').textContent    = currency(t.paid + t.unpaid);
+    tb.innerHTML = list.map(v => `
+      <tr>
+        <td>
+          <div class="flex-row">
+            <a href="https://youtu.be/${v.id}" target="_blank"><img src="${v.thumb}" class="thumb"></a>
+            <div>
+              <a href="https://youtu.be/${v.id}" target="_blank" class="row-title">${v.title}</a>
+              <div class="row-chan">${v.chan}</div>
+            </div>
+          </div>
+        </td>
+        <td>${this.fmtTime(v.sec)}</td>
+        <td><input type="number" value="${v.price}" style="width:70px" onchange="app.updateRow('${v.id}','price',this.value)"></td>
+        <td><input type="date" value="${v.date}" onchange="app.updateRow('${v.id}','date',this.value)"></td>
+        <td><input type="checkbox" ${v.paid?'checked':''} onchange="app.updateRow('${v.id}','paid',this.checked)"></td>
+        <td><button class="danger" onclick="app.deleteRow('${v.id}')">×</button></td>
+      </tr>
+    `).join('');
   }
+};
 
-  // ======= CSV Export =======
-  function toCSV(rows){
-    const header = ['URL','Duration','Price','Paid/Unpaid'];
-    const lines = [header.join(',')];
-    rows.forEach(r=> lines.push([escCsv(r.url), escCsv(r.duration), escCsv(r.price), escCsv(r.paid?'Paid':'Unpaid')].join(',')) );
-    return lines.join('\n');
-  }
-  function downloadCSV(filename, csv){
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-  }
-  function hydrateExportUi(){
-    const btn = $('#exportCsvBtn');
-    if(STATE.exportCfg){ btn.disabled=false; btn.classList.add('primary'); btn.title=`Export ${STATE.exportCfg.from} → ${STATE.exportCfg.to}`; }
-    else { btn.disabled=true; btn.classList.remove('primary'); btn.title='Pick a date range to enable export'; }
-  }
-  function performExport(){
-    if(!STATE.exportCfg){ alert('Pick a date range first'); return; }
-    const rows = rowsInRange(STATE.exportCfg.from, STATE.exportCfg.to);
-    if(!rows.length){ alert('No rows match the selected period.'); return; }
-    const name = `content-spend-${STATE.exportCfg.from}_to_${STATE.exportCfg.to}.csv`;
-    downloadCSV(name, toCSV(rows));
-  }
+window.onload = () => app.init();
 
-  // ======= Toolbar & Popover Wiring =======
-  $('#addRowBtn').onclick = $('#addRowBtnBottom').onclick = ()=>{ STATE.rows.push(newRowData()); render(); persist(); };
-  $('#exportBtn').onclick = ()=>{
-    const blob = new Blob([JSON.stringify({rows:STATE.rows}, null, 2)], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `content-spend-${new Date().toISOString().slice(0,10)}.json`; a.click();
-  };
-  $('#importBtn').onclick = ()=> $('#importInput').click();
-  $('#importInput').onchange = (e)=>{
-    const f = e.target.files[0]; if(!f) return;
-    const fr = new FileReader();
-    fr.onload = ()=>{ try{ const d = JSON.parse(fr.result); if(d.rows) STATE.rows = d.rows; render(); persist(); } catch{ alert('Invalid JSON'); } };
-    fr.readAsText(f);
-  };
-  $('#clearBtn').onclick = ()=>{ if(confirm('Clear all data?')){ STATE.rows = []; localStorage.removeItem(LS_KEY); render(); persist(); } };
-  $('#exportCsvBtn').onclick = performExport;
-
-  const pop = $('#rangePopover');
-  $('#pickRangeBtn').onclick = ()=>{ pop.style.display = pop.style.display==='block' ? 'none' : 'block'; };
-  document.addEventListener('click', (e)=>{ if(!pop.contains(e.target) && e.target.id!=='pickRangeBtn'){ pop.style.display='none'; } });
-  $('#applyRangeBtn').onclick = ()=>{
-    const from = $('#expFrom').value, to = $('#expTo').value;
-    if(!from || !to){ alert('Pick From and To'); return; }
-    STATE.exportCfg = {from, to}; hydrateExportUi(); persist(); pop.style.display='none';
-  };
-
-  // ======= Boot =======
-  restore();
-  if(!STATE.rows.length) STATE.rows.push(newRowData());
-  render();
-})();
 </script>
 </body>
 </html>
