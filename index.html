@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Content Spend Tracker</title>
+<title>Content Spend Tracker (Custom UI)</title>
 <style>
   :root {
     --bg: #09090b; --card: #18181b; --border: #27272a; --text: #e4e4e7;
@@ -16,7 +16,6 @@
   * { box-sizing: border-box; }
 
   /* --- LAYOUT --- */
-  /* FIXED: Removed min-height and flex:1 to allow shrinking */
   .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
   
   .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
@@ -40,7 +39,6 @@
   .text-green { color: var(--success); }
 
   /* --- DATA TABLE --- */
-  /* FIXED: Table wrapper now hugs content instead of stretching */
   .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--card); margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; min-width: 600px; }
   thead { background: #1f1f23; }
@@ -69,6 +67,10 @@
   .modal-head h3 { margin: 0; font-size: 16px; }
   .modal-body { padding: 20px; }
   .modal-foot { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.2); }
+
+  /* --- CONFIRM DIALOG --- */
+  .confirm-box { max-width: 400px; text-align: center; }
+  .confirm-msg { margin-bottom: 20px; font-size: 16px; line-height: 1.5; }
 
   /* --- UTILS --- */
   .flex-col { display: flex; flex-direction: column; gap: 10px; }
@@ -133,7 +135,7 @@
   </div>
   
   <div style="text-align:right;">
-    <button class="danger" onclick="app.reset()">Reset All Data</button>
+    <button class="danger" onclick="app.requestReset()">Reset All Data</button>
   </div>
 </div>
 
@@ -144,7 +146,7 @@
       <button onclick="ui.closeModal('modalSettings')" style="border:none; background:none; font-size:18px;">✕</button>
     </div>
     <div class="modal-body flex-col">
-      <label style="font-weight:bold; font-size:12px; color:var(--muted)">YOUTUBE API KEY (Required for Sync)</label>
+      <label style="font-weight:bold; font-size:12px; color:var(--muted)">YOUTUBE API KEY</label>
       <input type="password" id="inpApiKey" placeholder="Paste your API Key here...">
       
       <div class="mt"></div>
@@ -165,13 +167,13 @@
       </div>
 
       <div class="mt" style="border-top:1px solid var(--border); padding-top:15px;">
-        <label style="font-weight:bold; font-size:12px; color:var(--muted)">IGNORED VIDEOS (Deleted)</label>
+        <label style="font-weight:bold; font-size:12px; color:var(--muted)">IGNORED VIDEOS</label>
         <div class="flex-row" style="margin-top:5px; background:var(--bg); padding:10px; border-radius:6px; border:1px solid var(--border)">
            <div class="grow">
              <span id="ignoredCount" style="font-weight:bold; display:block">0</span>
              <span style="font-size:11px; color:var(--muted)">videos hidden from Sync</span>
            </div>
-           <button class="danger" onclick="app.clearIgnored()" style="font-size:12px">Clear List</button>
+           <button class="danger" onclick="app.requestClearIgnored()" style="font-size:12px">Clear List</button>
         </div>
       </div>
 
@@ -183,11 +185,24 @@
   </div>
 </div>
 
+<div id="modalConfirm" class="modal-overlay">
+  <div class="modal-box confirm-box">
+    <div class="modal-body">
+      <h3 style="margin-top:0">Confirm Action</h3>
+      <p id="confirmMsg" class="confirm-msg">Are you sure?</p>
+      <div class="flex-row" style="justify-content:center; gap:20px;">
+        <button onclick="ui.closeModal('modalConfirm')" style="min-width:100px">Cancel</button>
+        <button id="btnConfirmYes" class="primary danger" style="min-width:100px">Yes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast">Saved!</div>
 
 <script>
 /**
- * Content Spend Tracker - Final Responsive V2
+ * Content Spend Tracker - No Native Confirm() Version
  */
 const STORAGE_KEY = 'CST_FINAL_V1';
 
@@ -301,16 +316,15 @@ const app = {
 
   addVideoRow(vObj) {
     if(db.data.videos.some(x => x.id === vObj.id)) return false;
-    
-    // Remove from ignored list if manually adding back
     const ignoreIdx = db.data.ignored.indexOf(vObj.id);
     if(ignoreIdx > -1) db.data.ignored.splice(ignoreIdx, 1);
-
     db.data.videos.push(vObj);
     return true;
   },
 
   async addLink() {
+    // We use a simple prompt here as it's rarely blocked, but custom modal is cleaner.
+    // For now, prompt is usually safe.
     const url = prompt("Paste YouTube URL:");
     if(!url) return;
     const match = url.match(/(?:v=|\/)([a-zA-Z0-9_-]{11})/);
@@ -357,44 +371,39 @@ const app = {
     ui.closeModal('modalSettings');
     this.render();
   },
-  
-  clearIgnored() {
-    if(confirm(`Remove ${db.data.ignored.length} videos from the ignore list? They may reappear on next Sync.`)) {
+
+  // --- REPLACED CONFIRMS WITH CUSTOM MODAL ---
+  requestClearIgnored() {
+    ui.ask(
+      `Remove ${db.data.ignored.length} videos from the ignore list? They will reappear on next Sync.`,
+      () => {
         db.data.ignored = [];
         db.save();
         ui.renderIgnoredCount();
         ui.toast("Ignored List Cleared. Click Sync!");
-    }
+      }
+    );
   },
 
   async sync() {
     const btn = document.getElementById('btnSync');
     btn.disabled = true; btn.textContent = "Syncing...";
-    
     try {
       let newCount = 0;
       for(const ch of db.data.channels) {
         const pl = await api.req('playlistItems', { playlistId: ch.uploads, maxResults: 15, part: 'contentDetails' });
         const ids = pl.items.map(x => x.contentDetails.videoId);
-        
-        // Filter out existing AND ignored
-        const needed = ids.filter(id => 
-            !db.data.videos.some(v => v.id === id) && 
-            !db.data.ignored.includes(id)
-        );
+        const needed = ids.filter(id => !db.data.videos.some(v => v.id === id) && !db.data.ignored.includes(id));
         
         if(needed.length) {
           const details = await api.getVideos(needed);
-          details.forEach(d => {
-            if(this.addVideoRow(this.processVideo(d))) newCount++;
-          });
+          details.forEach(d => { if(this.addVideoRow(this.processVideo(d))) newCount++; });
         }
       }
       db.save();
       this.render();
       ui.toast(newCount === 0 ? "No new videos" : `Synced ${newCount} new`);
     } catch(e) { alert(e.message); }
-    
     btn.disabled = false; btn.textContent = "Sync Latest";
   },
 
@@ -407,13 +416,17 @@ const app = {
     }
   },
 
-  deleteRow(id) {
-    if(confirm("Delete this video? It will be ignored in future syncs.")) {
-      if(!db.data.ignored.includes(id)) db.data.ignored.push(id);
-      db.data.videos = db.data.videos.filter(v => v.id !== id);
-      db.save();
-      this.render();
-    }
+  // --- REPLACED CONFIRM ---
+  requestDeleteRow(id) {
+    ui.ask(
+      "Delete this video? It will be added to the ignore list and won't sync again.",
+      () => {
+        if(!db.data.ignored.includes(id)) db.data.ignored.push(id);
+        db.data.videos = db.data.videos.filter(v => v.id !== id);
+        db.save();
+        this.render();
+      }
+    );
   },
 
   togglePaid() {
@@ -433,7 +446,6 @@ const app = {
     const rows = db.data.videos.map(v => 
       `${v.date},"${v.title.replace(/"/g,'""')}","${v.chan}",${ui.fmtTime(v.sec)},${v.price},${v.paid?'Yes':'No'}`
     ).join("\n");
-    
     const blob = new Blob([head + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -441,11 +453,15 @@ const app = {
     a.click();
   },
   
-  reset() {
-    if(confirm("Wipe all data? This cannot be undone.")) {
-      localStorage.removeItem(STORAGE_KEY);
-      location.reload();
-    }
+  // --- REPLACED CONFIRM ---
+  requestReset() {
+    ui.ask(
+      "Wipe ALL data? This cannot be undone.",
+      () => {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      }
+    );
   }
 };
 
@@ -468,6 +484,23 @@ const ui = {
   openModal(id) { document.getElementById(id).classList.add('open'); },
   closeModal(id) { document.getElementById(id).classList.remove('open'); },
 
+  // --- NEW CUSTOM CONFIRM HANDLER ---
+  ask(msg, yesCallback) {
+    document.getElementById('confirmMsg').textContent = msg;
+    const btn = document.getElementById('btnConfirmYes');
+    
+    // Clone to remove old listeners
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    
+    newBtn.onclick = () => {
+      yesCallback();
+      this.closeModal('modalConfirm');
+    };
+    
+    this.openModal('modalConfirm');
+  },
+
   toast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -479,7 +512,6 @@ const ui = {
     const c = document.getElementById('chanList');
     c.innerHTML = '';
     if(!db.data.channels.length) c.innerHTML = '<div style="color:var(--muted); font-size:12px; font-style:italic;">No channels added.</div>';
-    
     db.data.channels.forEach((ch, idx) => {
       c.innerHTML += `
         <div class="channel-row">
@@ -510,7 +542,6 @@ const ui = {
   renderTable() {
     const tb = document.getElementById('tbody');
     let list = [...db.data.videos];
-    
     if(db.data.hidePaid) list = list.filter(v => !v.paid);
     
     const f = db.data.sortField;
@@ -541,7 +572,7 @@ const ui = {
         <td><input type="number" value="${v.price}" style="width:70px" onchange="app.updateRow('${v.id}','price',this.value)"></td>
         <td><input type="date" value="${v.date}" onchange="app.updateRow('${v.id}','date',this.value)"></td>
         <td><input type="checkbox" ${v.paid?'checked':''} onchange="app.updateRow('${v.id}','paid',this.checked)"></td>
-        <td><button class="danger" onclick="app.deleteRow('${v.id}')">×</button></td>
+        <td><button class="danger" onclick="app.requestDeleteRow('${v.id}')">×</button></td>
       </tr>
     `).join('');
   }
