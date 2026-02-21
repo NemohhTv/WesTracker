@@ -6,6 +6,8 @@ on:
 jobs:
   save-json:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # This gives the bot permission to save the file!
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -17,7 +19,8 @@ jobs:
       - name: Commit and Push
         run: |
           git config --global user.name "WesNemo-Backup-Bot"
-          git config --global user.email "wes@nemo.com"
+          git config --global user.email "backup@wesnemo.local"
           git add backup.json
-          git commit -m "Automated Cloud Backup: $(date)"
+          # The '|| echo' part stops it from crashing if there are zero changes
+          git commit -m "Automated Cloud Backup: $(date)" || echo "No changes to commit"
           git push
