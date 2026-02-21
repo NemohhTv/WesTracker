@@ -1,0 +1,23 @@
+name: Cloud Backup
+on:
+  repository_dispatch:
+    types: [cloud_backup]
+
+jobs:
+  save-json:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Write Backup File
+        run: |
+          echo '${{ github.event.client_payload.data }}' > backup.json
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "WesNemo-Backup-Bot"
+          git config --global user.email "wes@nemo.com"
+          git add backup.json
+          git commit -m "Automated Cloud Backup: $(date)"
+          git push
